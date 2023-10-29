@@ -6,7 +6,7 @@
             $_SESSION['SESSION_START_TIME'] = time();
         } else {
             // Check if the session has exceeded the timeout
-            $sessionTimeout = 15; // 15 seconds
+            $sessionTimeout = 300; // 15 seconds
             if (time() - $_SESSION['SESSION_START_TIME'] > $sessionTimeout) {
                 // Session has expired, destroy it
                 session_unset();
