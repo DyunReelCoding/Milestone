@@ -1,9 +1,16 @@
 <?php
-    //Import PHPMailer classes into the global namespace
-    //These must be at the top of your script, not inside a function
+    // Import PHPMailer classes into the global namespace
+    // These must be at the top of your script, not inside a function
     use PHPMailer\PHPMailer\PHPMailer;
     use PHPMailer\PHPMailer\SMTP;
     use PHPMailer\PHPMailer\Exception;
+
+    // Security headers
+    header("Strict-Transport-Security: max-age=63072000; includeSubDomains; preload"); // Added security header
+    header("X-Content-Type-Options: nosniff"); // Added security header
+    header("X-Frame-Options: DENY"); // Added security header
+    header("X-XSS-Protection: 1; mode=block"); // Added security header
+    header("Content-Security-Policy: default-src 'self'; script-src 'self' https://kit.fontawesome.com; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:;"); // Added Content Security Policy (CSP)
 
     session_start();
     if (isset($_SESSION['SESSION_EMAIL'])) {
@@ -11,30 +18,36 @@
         die();
     }
 
-    //Load Composer's autoloader
+    // Load Composer's autoloader
     require 'vendor/autoload.php';
 
     include 'config.php';
     $msg = "";
 
     if (isset($_POST['submit'])) {
-        
-        $name = mysqli_real_escape_string($conn, $_POST['name']);
-        $email = mysqli_real_escape_string($conn, $_POST['email']);
+        // Input validation and output encoding
+        $name = mysqli_real_escape_string($conn, htmlspecialchars(trim($_POST['name']))); // Added input validation and output encoding
+        $email = mysqli_real_escape_string($conn, htmlspecialchars(trim($_POST['email']))); // Added input validation and output encoding
         $password = mysqli_real_escape_string($conn, md5($_POST['password']));
         $confirm_password = mysqli_real_escape_string($conn, md5($_POST['confirm-password']));
         $code = mysqli_real_escape_string($conn, md5(rand()));
 
-        if (mysqli_num_rows(mysqli_query($conn, "SELECT * FROM users WHERE email='{$email}'")) > 0) {
-            $msg = "<div class='alert alert-danger'>{$email} - This email address has been already exists.</div>";
+        // Basic email validation
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $msg = "<div class='alert alert-danger'>Invalid email address.</div>";
+        } elseif (mysqli_num_rows(mysqli_query($conn, "SELECT * FROM users WHERE email='{$email}'")) > 0) {
+            $msg = "<div class='alert alert-danger'>{$email} - This email address already exists.</div>";
         } else {
+            // Password length validation
             if (strlen($_POST['password']) < 8) {
-            $msg = "<div class='alert alert-danger'>Password must be at least 8 characters long.</div>";
-            } else if ($password === $confirm_password) {
-                $sql = "INSERT INTO users (name, email, password, code) VALUES ('{$name}', '{$email}', '{$password}', '{$code}')";
-                $result = mysqli_query($conn, $sql);
+                $msg = "<div class='alert alert-danger'>Password must be at least 8 characters long.</div>";
+            } else {
+                // Password match validation
+                if ($password === $confirm_password) {
+                    $sql = "INSERT INTO users (name, email, password, code) VALUES ('{$name}', '{$email}', '{$password}', '{$code}')";
+                    $result = mysqli_query($conn, $sql);
 
-                if ($result) {
+                    if ($result) {
                     echo "<div style='display: none;'>";
                     //Create an instance; passing `true` enables exceptions
                     $mail = new PHPMailer(true);
@@ -57,7 +70,7 @@
                         //Content
                         $mail->isHTML(true);                                  //Set email format to HTML
                         $mail->Subject = 'no reply';
-                        $mail->Body    = 'Here is the verification link <b><a href="http://localhost/milestone-107/?verification='.$code.'">http://localhost/milestone-107/?verification='.$code.'</a></b>';
+                        $mail->Body    = 'Here is the verification link <b><a href="http://localhost/milestone-107/?verification='.$code.'">http://localhost/milestone/?verification='.$code.'</a></b>';
 
                         $mail->send();
                         echo 'Message has been sent';
@@ -65,15 +78,16 @@
                         echo "Message could not be sent. Mailer Error: {$mail->ErrorInfo}";
                     }
                     echo "</div>";
-                    $msg = "<div class='alert alert-info'>Verification link has been sent on your email address.</div>";
+                    $msg = "<div class='alert alert-info'>Verification link has been sent to your email address.</div>";
                 } else {
-                    $msg = "<div class='alert alert-danger'>Something wrong went.</div>";
+                    $msg = "<div class='alert alert-danger'>Something went wrong.</div>";
                 }
             } else {
-                $msg = "<div class='alert alert-danger'>Password and Confirm Password do not match</div>";
+                $msg = "<div class='alert alert-danger'>Password and Confirm Password do not match.</div>";
             }
         }
     }
+}
 ?>
 
 <!DOCTYPE html>
